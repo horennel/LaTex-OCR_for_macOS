@@ -11,6 +11,7 @@ APP = ['latex_ocr.py']
 DATA_FILES = []
 OPTIONS = {'iconfile': './icons/logo.icns',
            'plist': {
+               'LSUIElement': True,  # no icon in the dock
                'CFBundleName': 'MyLatexOCR',  # Application Name
                'CFBundleDisplayName': 'MyLatexOCR',  # Application Display Name
                'CFBundleVersion': '0.01',  # Application version number
