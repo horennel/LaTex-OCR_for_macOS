@@ -3,17 +3,32 @@ from PIL import ImageGrab
 import pyperclip
 import rumps
 
-SUCCESS_NT_FORM = {
-    'title': 'Success!',
-    'subtitle': 'Success!Copied to clipboard.',
-    'message': ''
-}
+from threading import Thread
 
-ERROR_NT_FORM = {
-    'title': 'Fail!',
-    'subtitle': 'Error!You didn\'t copy the screenshot.',
-    'message': ''
-}
+SUCCESS = 0
+NO_COPY_ERROR = 1
+UN_KNOWN_ERROR = 2
+
+
+class Message(object):
+    def __init__(self, msg_type, message=None):
+        if msg_type == SUCCESS:
+            self.title = "Success!"
+            self.subtitle = 'Success!Copied to clipboard.'
+            self.message = ''
+        else:
+            self.title = 'Error!'
+            if msg_type == NO_COPY_ERROR:
+                self.subtitle = 'You did not copy the screenshot.'
+                self.message = 'Please copy the picture first.'
+            elif msg_type == UN_KNOWN_ERROR:
+                self.subtitle = 'Unknown error'
+                self.message = message
+
+    def to_json(self):
+        attrs = vars(self)
+        attrs = {k: v for k, v in attrs.items() if not k.startswith('__') and not callable(v)}
+        return attrs
 
 
 class LatexOrcApplication(rumps.App):
@@ -24,31 +39,25 @@ class LatexOrcApplication(rumps.App):
     @rumps.clicked("Formula OCR")
     def recognize_formula(self, _):
         # Only recognize formula
-        image = ImageGrab.grabclipboard()
-        try:
-            formula_str = self.p2t.recognize_formula(image, resized_shape=608, save_analysis_res=None)
-            pyperclip.copy(formula_str)
-            rumps.notification(**SUCCESS_NT_FORM)
-        except Exception as e:
-            ERROR_NT_FORM['message'] += str(e)
-            rumps.notification(**ERROR_NT_FORM)
+        image = self.get_image()
+        if image:
+            ocr_task = Thread(target=self.start_ocr_and_copy, args=(self.p2t.recognize_formula, image, 608))
+            ocr_task.start()
 
     @rumps.clicked("Mixed OCR")
     def recognize_mixed(self, _):
         # Identify mixed image
-        image = ImageGrab.grabclipboard()
-        try:
-            outs = self.p2t.recognize(image, resized_shape=608)  # 也可以使用 `p2t(img_fp, resized_shape=608)` 获得相同的结果
-            only_text = merge_line_texts(outs, auto_line_break=True)
-            pyperclip.copy(only_text)
-            rumps.notification(**SUCCESS_NT_FORM)
-        except Exception as e:
-            ERROR_NT_FORM['message'] += str(e)
-            rumps.notification(**ERROR_NT_FORM)
+        image = self.get_image()
+        if image:
+            ocr_task = Thread(target=self.start_ocr_and_copy, args=(self.p2t.recognize, image, 608))
+            ocr_task.start()
 
     @rumps.notifications
     def notification_center(self, info):
-        pass
+        if 'Unknown' in info.subtitle:
+            error_window = rumps.Window(title='Error Message', default_text=info.message)
+            error_window.icon = './icons/menu_bar_logo.png'
+            error_window.run()
 
     @rumps.clicked("On / Off")
     def onoff(self, _):
@@ -62,6 +71,34 @@ class LatexOrcApplication(rumps.App):
             mixed_ocr_button.set_callback(self.recognize_mixed)
         else:
             mixed_ocr_button.set_callback(None)
+
+    def get_image(self):
+        image = ImageGrab.grabclipboard()
+        if not image:
+            rumps.notification(**Message(NO_COPY_ERROR).to_json())
+            return None
+        return image
+
+    def start_ocr_and_copy(self, ocr_func, image, resized_shape):
+        formula_ocr_button = self.menu['Formula OCR']
+        formula_ocr_button.set_callback(None)
+        mixed_ocr_button = self.menu['Mixed OCR']
+        mixed_ocr_button.set_callback(None)
+        onoff_button = self.menu['On / Off']
+        onoff_button.set_callback(None)
+        self.title = 'IN OCR'
+        try:
+            result = ocr_func(image, resized_shape=resized_shape)
+            if isinstance(result, str) is False:
+                result = merge_line_texts(result, auto_line_break=True)
+            pyperclip.copy(result)
+            rumps.notification(**Message(SUCCESS).to_json())
+        except Exception as e:
+            rumps.notification(**Message(UN_KNOWN_ERROR, str(e)).to_json())
+        formula_ocr_button.set_callback(self.recognize_formula)
+        mixed_ocr_button.set_callback(self.recognize_mixed)
+        onoff_button.set_callback(self.onoff)
+        self.title = None
 
 
 if __name__ == "__main__":
