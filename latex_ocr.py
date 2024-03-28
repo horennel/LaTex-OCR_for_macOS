@@ -54,7 +54,7 @@ class LatexOrcApplication(rumps.App):
 
     @rumps.clicked("Text OCR")
     def recognize_text(self, _):
-        # Only recognize formula
+        # Only recognize text
         image = self.get_image()
         if image:
             ocr_task = Thread(target=self.start_ocr_and_copy, args=('Text OCR', image))
