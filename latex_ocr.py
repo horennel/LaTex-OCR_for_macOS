@@ -1,4 +1,4 @@
-from pix2text import Pix2Text, merge_line_texts
+from pix2text import Pix2Text
 from PIL import ImageGrab
 import pyperclip
 import rumps
@@ -41,7 +41,7 @@ class LatexOrcApplication(rumps.App):
         # Only recognize formula
         image = self.get_image()
         if image:
-            ocr_task = Thread(target=self.start_ocr_and_copy, args=(self.p2t.recognize_formula, image, 608))
+            ocr_task = Thread(target=self.start_ocr_and_copy, args=('Formula OCR', image))
             ocr_task.start()
 
     @rumps.clicked("Mixed OCR")
@@ -49,7 +49,15 @@ class LatexOrcApplication(rumps.App):
         # Identify mixed image
         image = self.get_image()
         if image:
-            ocr_task = Thread(target=self.start_ocr_and_copy, args=(self.p2t.recognize, image, 608))
+            ocr_task = Thread(target=self.start_ocr_and_copy, args=('Mixed OCR', image))
+            ocr_task.start()
+
+    @rumps.clicked("Text OCR")
+    def recognize_text(self, _):
+        # Only recognize formula
+        image = self.get_image()
+        if image:
+            ocr_task = Thread(target=self.start_ocr_and_copy, args=('Text OCR', image))
             ocr_task.start()
 
     @rumps.notifications
@@ -79,18 +87,23 @@ class LatexOrcApplication(rumps.App):
             return None
         return image
 
-    def start_ocr_and_copy(self, ocr_func, image, resized_shape):
+    def start_ocr_and_copy(self, ocr_func, image):
         formula_ocr_button = self.menu['Formula OCR']
         formula_ocr_button.set_callback(None)
         mixed_ocr_button = self.menu['Mixed OCR']
         mixed_ocr_button.set_callback(None)
+        text_ocr_button = self.menu['Text OCR']
+        text_ocr_button.set_callback(None)
         onoff_button = self.menu['On / Off']
         onoff_button.set_callback(None)
-        self.title = 'IN OCR'
+        self.title = 'working'
         try:
-            result = ocr_func(image, resized_shape=resized_shape)
-            if isinstance(result, str) is False:
-                result = merge_line_texts(result, auto_line_break=True)
+            if ocr_func == 'Formula OCR':
+                result = self.p2t.recognize_formula(image)
+            elif ocr_func == 'Mixed OCR':
+                result = self.p2t.recognize(image, resized_shape=608, return_text=True)
+            else:
+                result = self.p2t.recognize_text(image)
             pyperclip.copy(result)
             rumps.notification(**Message(SUCCESS).to_json())
         except Exception as e:
@@ -98,6 +111,7 @@ class LatexOrcApplication(rumps.App):
         formula_ocr_button.set_callback(self.recognize_formula)
         mixed_ocr_button.set_callback(self.recognize_mixed)
         onoff_button.set_callback(self.onoff)
+        text_ocr_button.set_callback(self.recognize_text)
         self.title = None
 
 
