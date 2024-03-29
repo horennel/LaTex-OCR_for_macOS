@@ -45,7 +45,7 @@ python3 setup.py py2app -A
 
 - 启动程序
     - 启动应用`MyLatexOCR`，可以看到应用程序的菜单栏图标
-    - 点击菜单栏图标的`On / Off`按钮，确保`Formula OCR`和`Mixed OCR`按钮常亮
+    - 点击菜单栏图标的`On / Off`按钮，确保`Formula OCR`、`Text OCR`和`Mixed OCR`按钮常亮
 - 截图
     - 使用任意截图软件，例如`Snipaste`，截图并复制到剪切板
 - 识别
@@ -55,8 +55,11 @@ python3 setup.py py2app -A
     - 识别数学公式和文字的混合
         - 点击`Mixed OCR`按钮
         - 识别成功后，会收到通知栏的通知
+    - 仅识别文字
+        - 点击`Text OCR`按钮
+        - 识别成功后，会收到通知栏的通知
     - 如果不想接受通知可以在系统设置里关闭通知
-    - 收到通知后，即可粘贴Latex公式到任意地方
+    - 收到通知后，即可粘贴Latex公式和文字到任意地方
 
 ### 注意事项
 
