@@ -79,6 +79,11 @@ class LatexOrcApplication(rumps.App):
             mixed_ocr_button.set_callback(self.recognize_mixed)
         else:
             mixed_ocr_button.set_callback(None)
+        text_ocr_button = self.menu['Text OCR']
+        if text_ocr_button.callback is None:
+            text_ocr_button.set_callback(self.recognize_text)
+        else:
+            text_ocr_button.set_callback(None)
 
     def get_image(self):
         image = ImageGrab.grabclipboard()
