@@ -14,7 +14,7 @@ OPTIONS = {'iconfile': './icons/logo.icns',
                'LSUIElement': True,  # no icon in the dock
                'CFBundleName': 'MyLatexOCR',  # Application Name
                'CFBundleDisplayName': 'MyLatexOCR',  # Application Display Name
-               'CFBundleVersion': '0.01',  # Application version number
+               'CFBundleVersion': '0.02',  # Application version number
                'CFBundleIdentifier': 'MyLatexOCR',  # Application package name and unique identifier
            }
            }
