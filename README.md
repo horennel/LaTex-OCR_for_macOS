@@ -4,6 +4,7 @@
 
 ### 更新
 
+- 新增了[自动识别（仅支持数学公式识别）](#auto-ocr)功能，以解决在长时间，多次数识别数学公式的场景下，需要手动按识别按钮的问题
 - 新增了纯文本识别的功能和按钮
 - 应用程序启动后，不在dock栏显示应用图标
 - 修正了在识别过程用时较长的情况下，程序卡住（实际上在等待识别完成）的问题
@@ -14,10 +15,9 @@
 
 - 测试效果
   ![test.png](assets%2Ftest.png)
-- 应用在启动台的效果图
-  ![app_style.png](assets%2Fapp_style.png)
 - 菜单栏应用的效果图
-  ![menu_bar_style.png](assets%2Fmenu_bar_style.png)
+  ![menu_bar_style_auto_off.png](assets%2Fmenu_bar_style_auto_off.png)
+  ![menu_bar_style_auto_on.png](assets%2Fmenu_bar_style_auto_on.png)
 
 ### 如何安装
 
@@ -45,7 +45,6 @@ python3 setup.py py2app -A
 
 - 启动程序
     - 启动应用`MyLatexOCR`，可以看到应用程序的菜单栏图标
-    - 点击菜单栏图标的`On / Off`按钮，确保`Formula OCR`、`Text OCR`和`Mixed OCR`按钮常亮
 - 截图
     - 使用任意截图软件，例如`Snipaste`，截图并复制到剪切板
 - 识别
@@ -60,6 +59,15 @@ python3 setup.py py2app -A
         - 识别成功后，会收到通知栏的通知
     - 如果不想接受通知可以在系统设置里关闭通知
     - 收到通知后，即可粘贴Latex公式和文字到任意地方
+- 自动识别（仅支持数学公式识别）<span id="auto-ocr">
+    - 启动和关闭自动识别
+        - 点击`Auto On/Off`按钮，菜单栏图标`暗黑`为已启动自动识别功能，`明亮`为已关闭自动识别功能
+    - 使用
+        - 启动自动识别功能后，不需要再点击其他按钮，程序会自动读取剪切板的图片识别
+    - 注意事项⚠️
+        - 因为程序是自动读取剪切板中的图片，所以程序无法准确知道当前剪切板的图片是否需要识别
+        - 如果开启自动识别功能后，复制了不需要识别的图片，会引起系统资源的浪费和刚复制到剪切板图片丢失
+        - 鉴于以上两点，建议如果需要连续，长时间，多次识别数学公式时，可以开启自动识别功能
 
 ### 注意事项
 
