@@ -4,6 +4,7 @@ import pyperclip
 import rumps
 
 from threading import Thread
+from queue import Queue
 
 SUCCESS = 0
 NO_COPY_ERROR = 1
@@ -33,8 +34,12 @@ class Message(object):
 
 class LatexOrcApplication(rumps.App):
     def __init__(self, name):
-        super(LatexOrcApplication, self).__init__(name=name, icon='./icons/menu_bar_logo.png', quit_button="Quit")
+        super(LatexOrcApplication, self).__init__(name=name, icon='./icons/menu_bar_logo_auto_off.png',
+                                                  quit_button="Quit")
         self.p2t = Pix2Text(analyzer_config=dict(model_name='mfd'))
+        self.q = Queue(maxsize=1)
+        self.last_img = 1
+        self.close_automatic = True
 
     @rumps.clicked("Formula OCR")
     def recognize_formula(self, _):
@@ -64,10 +69,10 @@ class LatexOrcApplication(rumps.App):
     def notification_center(self, info):
         if 'Unknown' in info.subtitle:
             error_window = rumps.Window(title='Error Message', default_text=info.message)
-            error_window.icon = './icons/menu_bar_logo.png'
+            error_window.icon = './icons/menu_bar_logo_auto_off.png'
             error_window.run()
 
-    @rumps.clicked("On / Off")
+    @rumps.clicked("Auto On/Off")
     def onoff(self, _):
         formula_ocr_button = self.menu['Formula OCR']
         if formula_ocr_button.callback is None:
@@ -84,6 +89,20 @@ class LatexOrcApplication(rumps.App):
             text_ocr_button.set_callback(self.recognize_text)
         else:
             text_ocr_button.set_callback(None)
+        if self.close_automatic is True:
+            self.close_automatic = False
+            self.icon = './icons/menu_bar_logo_auto_on.png'
+        else:
+            self.close_automatic = True
+            self.icon = './icons/menu_bar_logo_auto_off.png'
+
+    @rumps.timer(1.5)
+    def automatic_ocr(self, _):
+        if self.close_automatic is False:
+            image = ImageGrab.grabclipboard()
+            if image and image != self.last_img:
+                self.q.put(image)
+                self.last_img = image
 
     def get_image(self):
         image = ImageGrab.grabclipboard()
@@ -92,15 +111,9 @@ class LatexOrcApplication(rumps.App):
             return None
         return image
 
-    def start_ocr_and_copy(self, ocr_func, image):
-        formula_ocr_button = self.menu['Formula OCR']
-        formula_ocr_button.set_callback(None)
-        mixed_ocr_button = self.menu['Mixed OCR']
-        mixed_ocr_button.set_callback(None)
-        text_ocr_button = self.menu['Text OCR']
-        text_ocr_button.set_callback(None)
-        onoff_button = self.menu['On / Off']
-        onoff_button.set_callback(None)
+    def start_ocr_and_copy(self, ocr_func, image, is_auto_ocr=False):
+        if is_auto_ocr is False:
+            self.clicked_close()
         self.title = 'working'
         try:
             if ocr_func == 'Formula OCR':
@@ -113,11 +126,40 @@ class LatexOrcApplication(rumps.App):
             rumps.notification(**Message(SUCCESS).to_json())
         except Exception as e:
             rumps.notification(**Message(UN_KNOWN_ERROR, str(e)).to_json())
+        if is_auto_ocr is False:
+            self.clicked_open()
+        self.title = None
+
+    def auto_ocr(self):
+        while True:
+            image = self.q.get()
+            self.start_ocr_and_copy('Formula OCR', image, is_auto_ocr=True)
+
+    def clicked_open(self):
+        formula_ocr_button = self.menu['Formula OCR']
+        mixed_ocr_button = self.menu['Mixed OCR']
+        text_ocr_button = self.menu['Text OCR']
+        onoff_button = self.menu['Auto On/Off']
         formula_ocr_button.set_callback(self.recognize_formula)
         mixed_ocr_button.set_callback(self.recognize_mixed)
         onoff_button.set_callback(self.onoff)
         text_ocr_button.set_callback(self.recognize_text)
-        self.title = None
+
+    def clicked_close(self):
+        formula_ocr_button = self.menu['Formula OCR']
+        mixed_ocr_button = self.menu['Mixed OCR']
+        text_ocr_button = self.menu['Text OCR']
+        onoff_button = self.menu['Auto On/Off']
+        formula_ocr_button.set_callback(None)
+        mixed_ocr_button.set_callback(None)
+        text_ocr_button.set_callback(None)
+        onoff_button.set_callback(None)
+
+    def run(self, **options):
+        self.close_automatic = True
+        t = Thread(target=self.auto_ocr)
+        t.start()
+        super().run(**options)
 
 
 if __name__ == "__main__":
