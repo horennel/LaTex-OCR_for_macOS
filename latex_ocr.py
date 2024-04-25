@@ -138,7 +138,7 @@ class LatexOrcApplication(rumps.App):
         except Exception as e:
             rumps.notification(**Message(UN_KNOWN_ERROR, str(e)).to_json())
         if is_auto_ocr is False:
-            self.clicked_open([F, M, T])
+            self.clicked_open([F, M, T], False)
         self.title = None
 
     def auto_ocr(self):
