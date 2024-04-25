@@ -6,9 +6,22 @@ import rumps
 from threading import Thread
 from queue import Queue
 
+WORKING_TITLE = 'working'
+LISTENING_EVENT_INTERVAL = 1.5  # (s)
+
 SUCCESS = 0
 NO_COPY_ERROR = 1
 UN_KNOWN_ERROR = 2
+
+FREE_MODE = 0
+FORMULA_AUTO_MODE = 1
+MIXED_AUTO_MODE = 2
+TEXT_AUTO_MODE = 3
+
+F = 'Formula OCR'
+M = 'Mixed OCR'
+T = 'Text OCR'
+A = 'Auto On/Off'
 
 
 class Message(object):
@@ -39,31 +52,37 @@ class LatexOrcApplication(rumps.App):
         self.p2t = Pix2Text(analyzer_config=dict(model_name='mfd'))
         self.q = Queue(maxsize=1)
         self.last_img = 1
-        self.close_automatic = True
+        self.mode = FREE_MODE
 
     @rumps.clicked("Formula OCR")
-    def recognize_formula(self, _):
-        # Only recognize formula
-        image = self.get_image()
-        if image:
-            ocr_task = Thread(target=self.start_ocr_and_copy, args=('Formula OCR', image))
-            ocr_task.start()
+    def recognize_formula(self, sender):
+        if self.mode == FREE_MODE:
+            image = self.get_image()
+            if image:
+                ocr_task = Thread(target=self.start_ocr_and_copy, args=(F, image))
+                ocr_task.start()
+        else:
+            self.mode_state_change(sender, F)
 
     @rumps.clicked("Mixed OCR")
-    def recognize_mixed(self, _):
-        # Identify mixed image
-        image = self.get_image()
-        if image:
-            ocr_task = Thread(target=self.start_ocr_and_copy, args=('Mixed OCR', image))
-            ocr_task.start()
+    def recognize_mixed(self, sender):
+        if self.mode == FREE_MODE:
+            image = self.get_image()
+            if image:
+                ocr_task = Thread(target=self.start_ocr_and_copy, args=(M, image))
+                ocr_task.start()
+        else:
+            self.mode_state_change(sender, M)
 
     @rumps.clicked("Text OCR")
-    def recognize_text(self, _):
-        # Only recognize text
-        image = self.get_image()
-        if image:
-            ocr_task = Thread(target=self.start_ocr_and_copy, args=('Text OCR', image))
-            ocr_task.start()
+    def recognize_text(self, sender):
+        if self.mode == FREE_MODE:
+            image = self.get_image()
+            if image:
+                ocr_task = Thread(target=self.start_ocr_and_copy, args=(T, image))
+                ocr_task.start()
+        else:
+            self.mode_state_change(sender, T)
 
     @rumps.notifications
     def notification_center(self, info):
@@ -73,38 +92,30 @@ class LatexOrcApplication(rumps.App):
             error_window.run()
 
     @rumps.clicked("Auto On/Off")
-    def onoff(self, _):
-        formula_ocr_button = self.menu['Formula OCR']
-        if formula_ocr_button.callback is None:
-            formula_ocr_button.set_callback(self.recognize_formula)
-        else:
+    def onoff(self, sender):
+        if sender.state == 0:
+            formula_ocr_button = self.menu[F]
+            formula_ocr_button.state = 1
             formula_ocr_button.set_callback(None)
-        mixed_ocr_button = self.menu['Mixed OCR']
-        if mixed_ocr_button.callback is None:
-            mixed_ocr_button.set_callback(self.recognize_mixed)
-        else:
-            mixed_ocr_button.set_callback(None)
-        text_ocr_button = self.menu['Text OCR']
-        if text_ocr_button.callback is None:
-            text_ocr_button.set_callback(self.recognize_text)
-        else:
-            text_ocr_button.set_callback(None)
-        if self.close_automatic is True:
-            self.close_automatic = False
+            sender.state = 1
+            self.mode = FORMULA_AUTO_MODE
             self.icon = './icons/menu_bar_logo_auto_on.png'
         else:
-            self.close_automatic = True
+            self.mode = FREE_MODE
+            self.clicked_open([F, M, T])
+            sender.state = 0
             self.icon = './icons/menu_bar_logo_auto_off.png'
 
-    @rumps.timer(1.5)
+    @rumps.timer(LISTENING_EVENT_INTERVAL)
     def automatic_ocr(self, _):
-        if self.close_automatic is False:
+        if self.mode != FREE_MODE:
             image = ImageGrab.grabclipboard()
             if image and image != self.last_img:
                 self.q.put(image)
                 self.last_img = image
 
-    def get_image(self):
+    @staticmethod
+    def get_image():
         image = ImageGrab.grabclipboard()
         if not image:
             rumps.notification(**Message(NO_COPY_ERROR).to_json())
@@ -113,12 +124,12 @@ class LatexOrcApplication(rumps.App):
 
     def start_ocr_and_copy(self, ocr_func, image, is_auto_ocr=False):
         if is_auto_ocr is False:
-            self.clicked_close()
-        self.title = 'working'
+            self.clicked_close([F, M, T])
+        self.title = WORKING_TITLE
         try:
-            if ocr_func == 'Formula OCR':
+            if ocr_func == F:
                 result = self.p2t.recognize_formula(image)
-            elif ocr_func == 'Mixed OCR':
+            elif ocr_func == M:
                 result = self.p2t.recognize(image, resized_shape=608, return_text=True)
             else:
                 result = self.p2t.recognize_text(image)
@@ -127,36 +138,57 @@ class LatexOrcApplication(rumps.App):
         except Exception as e:
             rumps.notification(**Message(UN_KNOWN_ERROR, str(e)).to_json())
         if is_auto_ocr is False:
-            self.clicked_open()
+            self.clicked_open([F, M, T])
         self.title = None
 
     def auto_ocr(self):
         while True:
             image = self.q.get()
-            self.start_ocr_and_copy('Formula OCR', image, is_auto_ocr=True)
+            if self.mode == FORMULA_AUTO_MODE:
+                self.start_ocr_and_copy(F, image, is_auto_ocr=True)
+            elif self.mode == MIXED_AUTO_MODE:
+                self.start_ocr_and_copy(M, image, is_auto_ocr=True)
+            elif self.mode == TEXT_AUTO_MODE:
+                self.start_ocr_and_copy(T, image, is_auto_ocr=True)
 
-    def clicked_open(self):
-        formula_ocr_button = self.menu['Formula OCR']
-        mixed_ocr_button = self.menu['Mixed OCR']
-        text_ocr_button = self.menu['Text OCR']
-        onoff_button = self.menu['Auto On/Off']
-        formula_ocr_button.set_callback(self.recognize_formula)
-        mixed_ocr_button.set_callback(self.recognize_mixed)
-        onoff_button.set_callback(self.onoff)
-        text_ocr_button.set_callback(self.recognize_text)
+    def clicked_open(self, menus_name, change_state=True):
+        for menu_name in menus_name:
+            menu = self.get_menu(menu_name)
+            menu.set_callback(self.menu_bind(menu_name))
+            if change_state is True and menu_name != A:
+                menu.state = 0
 
-    def clicked_close(self):
-        formula_ocr_button = self.menu['Formula OCR']
-        mixed_ocr_button = self.menu['Mixed OCR']
-        text_ocr_button = self.menu['Text OCR']
-        onoff_button = self.menu['Auto On/Off']
-        formula_ocr_button.set_callback(None)
-        mixed_ocr_button.set_callback(None)
-        text_ocr_button.set_callback(None)
-        onoff_button.set_callback(None)
+    def clicked_close(self, menus_name):
+        for menu_name in menus_name:
+            self.get_menu(menu_name).set_callback(None)
+
+    def mode_state_change(self, sender, mode_name):
+        sender.state = 1
+        self.clicked_close([mode_name])
+        if mode_name == F:
+            self.mode = FORMULA_AUTO_MODE
+            self.clicked_open([M, T])
+        elif mode_name == M:
+            self.mode = MIXED_AUTO_MODE
+            self.clicked_open([F, T])
+        elif mode_name == T:
+            self.mode = TEXT_AUTO_MODE
+            self.clicked_open([F, M])
+
+    def get_menu(self, menu_name):
+        return self.menu[menu_name]
+
+    def menu_bind(self, menu_name):
+        bind = {
+            F: self.recognize_formula,
+            M: self.recognize_mixed,
+            T: self.recognize_text,
+            A: self.onoff
+        }
+        return bind[menu_name]
 
     def run(self, **options):
-        self.close_automatic = True
+        self.mode = FREE_MODE
         t = Thread(target=self.auto_ocr)
         t.start()
         super().run(**options)
